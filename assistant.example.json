@@ -1,0 +1,18 @@
+{
+  "timezone": "Asia/Shanghai",
+  "morning_digest_time": "09:30",
+  "evening_digest_time": "21:30",
+  "default_reminder_time": "09:00",
+  "quiet_hours": {
+    "start": "23:00",
+    "end": "08:00"
+  },
+  "store_chat_days": 30,
+  "max_output_tokens": 2000,
+  "model": {
+    "base_url": "https://api.deepseek.com",
+    "api_key": "",
+    "name": "deepseek-chat",
+    "json_mode": true
+  }
+}

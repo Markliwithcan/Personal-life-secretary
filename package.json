@@ -1,0 +1,20 @@
+{
+  "name": "feishu-reminder-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node feishu-bot.mjs",
+    "test": "node --test *.test.mjs",
+    "health": "node healthcheck.mjs"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "1.74.0",
+    "luxon": "3.7.2",
+    "zod": "4.6.5"
+  }
+}

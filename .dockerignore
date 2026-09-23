@@ -1,0 +1,12 @@
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!requirements-cloud.txt
+!*.mjs
+!parse_sheet.py
+*.test.mjs
+check-*.mjs
+bot*.mjs
+group-worker.mjs
+control.mjs

@@ -1,0 +1,41 @@
+services:
+  assistant:
+    image: ${ASSISTANT_IMAGE:-feishu-assistant:local}
+    build: .
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 120s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      ASSISTANT_CONFIG_DIR: /config
+      ASSISTANT_DATA_DIR: /data
+      ASSISTANT_PYTHON: /opt/venv/bin/python
+    volumes:
+      - type: bind
+        source: ./cloud-config
+        target: /config
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./cloud-data
+        target: /data
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.mjs"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

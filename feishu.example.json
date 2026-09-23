@@ -1,0 +1,9 @@
+{
+  "app_id": "",
+  "app_secret": "",
+  "allowed_users": [],
+  "allowed_groups": [],
+  "cross_assign_groups": [],
+  "owner_open_id": "",
+  "enabled": true
+}

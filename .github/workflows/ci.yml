@@ -1,0 +1,23 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --ignore-scripts
+      - run: python -m pip install -r requirements-cloud.txt
+      - run: npm test
+        env:
+          ASSISTANT_PYTHON: python
+          ASSISTANT_DATA_DIR: /tmp/reminder-agent-ci-data
+      - run: python -m unittest test_parse_sheet.py
