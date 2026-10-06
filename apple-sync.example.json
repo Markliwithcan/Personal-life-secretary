@@ -1,0 +1,6 @@
+{
+  "enabled": false,
+  "port": 8788,
+  "namespace": "GENERATED_BY_PAIRING_COMMAND",
+  "clients": []
+}

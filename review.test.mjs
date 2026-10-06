@@ -32,7 +32,7 @@ test('model failure leaves retryable review and never creates task',async t=>{
 });
 test('digest includes default time and explicit supplement removes request',async t=>{
   const {store,engine}=setup(t);const a=store.create({title:'报告',due:'2026-09-17'},'x',cfg,now);assert.equal(a.reminder_explicit,0);
-  assert.match(digest(store,cfg,now),/补时间 1/);await engine.process('time','补时间 1 2026-09-17 15:00',now);assert.equal(store.get(1).reminder_explicit,1);assert.doesNotMatch(digest(store,cfg,now),/补时间 1/);
+  assert.match(digest(store,cfg,now),/请补充或确认提醒时间/);await engine.process('time','补时间 1 2026-09-17 15:00',now);assert.equal(store.get(1).reminder_explicit,1);assert.doesNotMatch(digest(store,cfg,now),/请补充或确认提醒时间/);
 });
 test('voice correction updates linked task twice without duplicates and corrects review history',async t=>{
   let call=0;

@@ -45,14 +45,14 @@ test('unanswered completion/time questions carry across morning and evening with
  assert.deepEqual(s.get(1),original);
 });
 test('morning at 09:30, retries survive and no obsolete morning at evening',async t=>{
- const {s}=setup(t);let calls=0;await tick(s,cfg,async()=>calls++,now-1);assert.equal(calls,0);
+ const {s}=setup(t);s.create(task,'daily-test',cfg,now);let calls=0;await tick(s,cfg,async()=>calls++,now-1);assert.equal(calls,0);
  await tick(s,cfg,async()=>{throw Error('offline');},now);assert.equal(s.db.prepare("SELECT state FROM jobs WHERE kind='morning'").get().state,'pending');
  await tick(s,cfg,async()=>calls++,now+60000);assert.equal(calls,1);await tick(s,cfg,async()=>calls++,now+120000);assert.equal(calls,1);
  const other=new Store(':memory:');t.after(()=>other.close());await tick(other,cfg,async()=>{},now+12*3600000);assert.equal(other.db.prepare("SELECT COUNT(*) n FROM jobs WHERE kind='morning'").get().n,0);
 });
 test('daily review snapshots confirmed completion and safely falls back if model fails',async t=>{
  const {s,e}=setup(t,async()=>{throw Error('offline');});s.create(task,'a',cfg,now);s.create({...task,title:'已完成示例'},'b',cfg,now);s.finish(2,false,cfg,now);
- const body=await e.daily('morning',now);assert.match(body,/今天已确认完成\n#2/);assert.match(body,/暂不可用/);assert.equal(s.db.prepare('SELECT COUNT(*) n FROM briefings').get().n,1);
+ const body=await e.daily('morning',now);assert.match(body,/今天已确认完成\n#2/);assert.doesNotMatch(body,/暂不可用|暂无|直接回复/);assert.equal(s.db.prepare('SELECT COUNT(*) n FROM briefings').get().n,1);
  assert.equal(await e.daily('morning',now),body);assert.equal(s.get(1).state,'open');
 });
 test('daily model never executes arbitrary write actions',async t=>{

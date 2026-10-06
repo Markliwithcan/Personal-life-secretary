@@ -36,7 +36,7 @@ test('quiet hours defer reminders; test command bypasses quiet hours',async t=>{
 test('daily digest generated once and separates tomorrow from unscheduled',async t=>{
   const {store,engine}=fixture(t);await engine.process('1','添加 找牙医',NOW);
   store.create({title:'提交材料',due:'2026-09-17'},'test',cfg,NOW);
-  assert.match(digest(store,cfg,NOW),/待安排（不是明天必须做）/);
+  assert.match(digest(store,cfg,NOW),/请补充或确认提醒时间[\s\S]*找牙医/);
   const sent=[];const evening=Date.parse('2026-09-16T21:31:00+09:00');await tick(store,cfg,async s=>sent.push(s),evening);await tick(store,cfg,async s=>sent.push(s),evening+5000);assert.equal(sent.length,1);assert.match(sent[0],/提交材料/);
 });
 test('recurring reminder advances and completing notified occurrence does not skip next',async t=>{

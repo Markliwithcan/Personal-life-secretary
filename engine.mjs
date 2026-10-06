@@ -88,7 +88,7 @@ export class Engine{
       });
     }
     else if(['待办','明天','逾期'].includes(text))response=this.list({待办:'all',明天:'tomorrow',逾期:'overdue'}[text],cfg,now);
-    else if(text==='明日清单'||text==='今日清单')response=digest(this.store,cfg,now,text==='今日清单'?'morning':'evening');
+    else if(text==='明日清单'||text==='今日清单')response=digest(this.store,cfg,now,text==='今日清单'?'morning':'evening')||'当前没有需要提醒或确认的事项。';
     else if(text==='执行计划'){const rows=this.store.db.prepare('SELECT * FROM allocations WHERE date>=? ORDER BY date,task_id').all(DateTime.fromMillis(now,{zone:cfg.timezone}).toISODate());response=rows.filter(r=>this.store.get(r.task_id)?.state==='open').map(r=>`${r.date} · ${this.store.get(r.task_id).title} · ${r.minutes}分钟：${r.step}`).join('\n')||'暂无已确认执行计划。可以告诉我接下来几天各有多少空闲时间。';}
     else if(text==='撤销计划')return this.store.tx(()=>this.commit(id,text,undoSchedule(this.store,now),now));
     else if(text==='记忆'){const rows=this.store.db.prepare('SELECT * FROM memories').all();response=rows.length?rows.map(r=>`${r.key}：${r.value}`).join('\n'):'暂无长期记忆。';}
@@ -174,18 +174,19 @@ export class Engine{
   }
   async daily(kind,now=Date.now()){
     const cfg=this.cfg(),day=DateTime.fromMillis(now,{zone:cfg.timezone}).toISODate(),key=`${kind}:${day}`;
-    const snapshot=JSON.stringify({tasks:this.store.all(),allocations:this.store.db.prepare('SELECT * FROM allocations ORDER BY task_id,date').all()});
+    const snapshot=JSON.stringify({format:2,tasks:this.store.all(),allocations:this.store.db.prepare('SELECT * FROM allocations ORDER BY task_id,date').all()});
     const existing=this.store.db.prepare('SELECT body,snapshot FROM briefings WHERE id=?').get(key);if(existing?.snapshot===snapshot)return existing.body;
     let body=digest(this.store,cfg,now,kind);
+    if(!body)return '';
     if(this.store.open().some(t=>t.state==='open')){
       try{
-        const plan=Plan.parse(await this.model(`请对${kind==='morning'?'今天':'明天'}给出简短秘书建议。先回顾已确认完成、明确未完成/部分完成、完成情况待确认。只读分析，不创建/修改/完成任务。若已知用户各日可用时间、剩余量、可拆分性，可返回唯一 schedule 草案；否则 reply 给出下一步建议、积压工作量和必要问题，不虚构可用时间。不确定项早晚继续询问，未答不改状态，不评判任务价值。`,this.store,cfg,now));
+        const plan=Plan.parse(await this.model(`请对${kind==='morning'?'今天':'明天'}给出简短秘书建议。先回顾已确认完成、明确未完成/部分完成、完成情况待确认。只读分析，不创建/修改/完成任务。若已知用户各日可用时间、剩余量、可拆分性，可返回唯一 schedule 草案；否则仅在有额外建议时用一两句话给出下一步或必要问题，可返回空 reply。不重复清单，不写操作示例、回复指南、空栏目或“暂无”，不虚构可用时间。不确定项早晚继续询问，未答不改状态，不评判任务价值。`,this.store,cfg,now));
         if(plan.actions.length===1&&plan.actions[0].op==='schedule'&&!plan.clarification){
           const p=plan.actions[0];validateSchedule(this.store,p,cfg,now);
           const revisions=Object.fromEntries(p.slots.map(s=>[s.id,this.store.get(s.id).revision]));
           const id=this.stage('actions',{plan,revisions},now);body+='\n\n秘书建议（待确认）：\n'+describeSchedule(this.store,p)+`\n回复“确认 ${id}”采用，或直接告诉我怎么调整。`;
-        }else if(!plan.actions.length)body+='\n\n秘书建议：\n'+(plan.clarification||plan.reply||'请补充可用时间后再安排。');
-      }catch{body+='\n\n本次智能排程暂不可用，以上任务清单仍有效，原计划未改变。';}
+        }else if(!plan.actions.length&&(plan.clarification||plan.reply)?.trim())body+='\n\n'+(plan.clarification||plan.reply).trim();
+      }catch{/* The deterministic briefing remains usable without model advice. */}
     }
     this.store.db.prepare('INSERT INTO briefings VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,snapshot=excluded.snapshot,created=excluded.created').run(key,body,snapshot,now);
     this.store.addHistory('assistant',body,now);return body;

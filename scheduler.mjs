@@ -13,19 +13,20 @@ export function digest(store,cfg,now,kind='evening'){
   const unfinished=relevant.filter(t=>['partial','unfinished'].includes(t.progress));
   const start=local.startOf('day').toMillis();
   const completed=store.db.prepare("SELECT DISTINCT task_id FROM audit WHERE action='complete' AND created>=? AND created<=?").all(start,now).map(r=>store.get(r.task_id)).filter(Boolean);
-  const section=(name,rows)=>name+'\n'+(rows.length?rows.slice(0,30).map(t=>line(t,cfg)+(t.progress==='partial'?'｜部分完成':'')+(t.remaining_minutes!=null?`｜剩余 ${t.remaining_minutes} 分钟`:'')).join('\n'):'暂无')+(rows.length>30?`\n另有 ${rows.length-30} 项，回复“待办”查看。`:'');
+  const section=(name,rows)=>rows.length?name+'\n'+rows.slice(0,30).map(t=>line(t,cfg)+(t.progress==='partial'?'｜部分完成':'')+(t.remaining_minutes!=null?`｜剩余 ${t.remaining_minutes} 分钟`:'')).join('\n')+(rows.length>30?`\n另有 ${rows.length-30} 项`: ''):'';
   const missing=tasks.filter(t=>!t.remind_at||!t.reminder_explicit);
-  const cancelling=store.pendingCancellations().filter(t=>!t.cancel_notified_at);
-  const cancelSection=kind==='evening'&&cancelling.length?'拟取消事项\n'+cancelling.map(t=>line(t,cfg)).join('\n')+'\n成功推送后满24小时未修改，将正式取消。说“不取消 + 事情描述”即可恢复。\n\n':'';
-  const knownMinutes=unfinished.reduce((n,t)=>n+(t.remaining_minutes??(t.progress==='partial'?0:t.effort_minutes)??0),0),unknownEffort=unfinished.filter(t=>t.remaining_minutes==null&&(t.progress==='partial'||t.effort_minutes==null)).length;
-  return cancelSection+`${kind==='morning'?'今日':'明日'}清单（${target}，${cfg.timezone}）\n\n`+
-    section('今天已确认完成',completed)+'\n\n'+section('目标日到期或提醒的事项',tasks.filter(t=>taskDate(t,cfg.timezone)===target))+'\n\n'+
-    '已确认执行安排\n'+(slots.map(s=>`${store.get(s.task_id).title}｜${s.minutes}分钟｜${s.step}`).join('\n')||'暂无')+'\n\n'+
-    section('明确未完成 / 部分完成',unfinished)+`\n已记录的工作量约 ${knownMinutes} 分钟${unknownEffort?`；另有 ${unknownEffort} 项剩余量待确认`:''}。不把这些自动塞进明天。\n\n`+
-    section('完成情况待确认（没回复不等于没完成）',unknown)+'\n\n'+
-    section('待安排（不是明天必须做）',tasks.filter(t=>!t.due&&!t.remind_at))+'\n\n'+
-    section('请补充或确认提醒时间（含系统默认时间）',missing)+(missing.length?`\n也可用“补时间 ${missing[0].id} ${target} 09:00”指定提醒。`:'')+'\n\n'+
-    '直接回复事情名称即可，例如“报告做完了”“报告做了一半，还剩45分钟”“买菜明天下午三点提醒”。未确定的事项保留，在下次早晚清单继续询问；不会擅自标为完成、取消或更改截止时间。\n告诉我哪天有多少空闲时间，可以拟定顺延或分摊草案。语音有误可回复“修改语音 正确的完整内容”。';
+  const cancelling=kind==='evening'?store.pendingCancellations().filter(t=>!t.cancel_notified_at):[];
+  const knownMinutes=unfinished.reduce((n,t)=>n+(t.remaining_minutes??(t.progress==='partial'?0:t.effort_minutes)??0),0);
+  const sections=[
+    section('今天已确认完成',completed),
+    section(kind==='morning'?'今日事项':'明日事项',tasks.filter(t=>taskDate(t,cfg.timezone)===target)),
+    slots.length?'执行安排\n'+slots.map(s=>`${store.get(s.task_id).title}｜${s.minutes}分钟${s.step?'｜'+s.step:''}`).join('\n'):'',
+    section('尚未完成',unfinished)+(unfinished.length&&knownMinutes?`\n已知剩余约 ${knownMinutes} 分钟。`:''),
+    section('完成情况待确认',unknown),
+    section('请补充或确认提醒时间',missing),
+    section('拟取消事项',cancelling)+(cancelling.length?'\n本次通知后24小时未修改，将正式取消。':'')
+  ].filter(Boolean);
+  return sections.length?`${kind==='morning'?'今日':'明日'}清单 · ${target}\n\n`+sections.join('\n\n'):'';
 }
 export async function tick(store,cfg,send,now=Date.now(),buildDaily=null){
   store.ensureCancellation();
@@ -52,7 +53,8 @@ export async function tick(store,cfg,send,now=Date.now(),buildDaily=null){
     const cancellationSnapshot=job.kind==='digest'?store.pendingCancellations().filter(t=>!t.cancel_notified_at):[];
     try{
       if(buildDaily&&['digest','morning'].includes(job.kind))text=await buildDaily(job.kind==='morning'?'morning':'evening',now);
-      await send(text);
+      if(text?.trim())await send(text);
+      else {store.db.prepare("UPDATE jobs SET state='sent',last_error=NULL WHERE id=?").run(job.id);continue;}
       store.tx(()=>{
         store.db.prepare("UPDATE jobs SET state='sent',attempts=attempts+1,last_error=NULL WHERE id=?").run(job.id);
         for(const t of cancellationSnapshot)store.db.prepare("UPDATE tasks SET cancel_notified_at=? WHERE id=? AND state='pending_cancel' AND revision=? AND cancel_notified_at IS NULL").run(now,t.id,t.revision);

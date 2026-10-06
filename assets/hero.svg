@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+<title id="title">Personal Life Secretary</title><desc id="desc">Capture your plans. Make room for life. Chat, plan, remind.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#10182e"/><stop offset="1" stop-color="#203d54"/></linearGradient></defs>
+<rect width="1200" height="360" rx="24" fill="url(#bg)"/>
+<circle cx="1110" cy="30" r="180" fill="#5eead4" opacity=".07"/>
+<circle cx="970" cy="350" r="200" fill="#818cf8" opacity=".09"/>
+<text x="60" y="65" fill="#5eead4" font-family="Arial,sans-serif" font-size="14" letter-spacing="4">YOUR SELF-HOSTED SECRETARY</text>
+<text x="60" y="133" fill="#f8fafc" font-family="Arial,sans-serif" font-size="47" font-weight="700">Personal Life Secretary</text>
+<text x="60" y="180" fill="#b8cbdc" font-family="Arial,sans-serif" font-size="23">Capture your plans. Make room for life.</text>
+<g font-family="Arial,sans-serif" font-size="16" text-anchor="middle">
+<rect x="60" y="241" width="155" height="47" rx="12" fill="#234b55"/><text x="137" y="271" fill="#99f6e4">01 / CHAT</text>
+<path d="M230 265h25m-7-6 7 6-7 6" fill="none" stroke="#7792a8" stroke-width="2"/>
+<rect x="270" y="241" width="155" height="47" rx="12" fill="#303f62"/><text x="347" y="271" fill="#c7d2fe">02 / PLAN</text>
+<path d="M440 265h25m-7-6 7 6-7 6" fill="none" stroke="#7792a8" stroke-width="2"/>
+<rect x="480" y="241" width="155" height="47" rx="12" fill="#3a4053"/><text x="557" y="271" fill="#fde68a">03 / REMIND</text></g>
+<g transform="translate(820 111)"><rect width="275" height="180" rx="20" fill="#14283c" stroke="#476178"/><rect x="25" y="29" width="20" height="20" rx="5" fill="#5eead4"/><path d="m30 39 4 4 7-9" stroke="#14283c" fill="none" stroke-width="2"/><path d="M61 39h175M61 89h145M61 139h115" stroke="#b8cbdc" stroke-width="9" stroke-linecap="round"/><rect x="25" y="79" width="20" height="20" rx="5" stroke="#818cf8" fill="none"/><rect x="25" y="129" width="20" height="20" rx="5" stroke="#818cf8" fill="none"/></g></svg>
