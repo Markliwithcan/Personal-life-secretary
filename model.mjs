@@ -41,7 +41,7 @@ create:{op:'create',task:{title:string,due:ISO字符串|null,remind_at:ISO字符
 update:{op:'update',id:数字,patch:task字段的子集}（修改 due 时提醒默认跟着改，保留提醒则明确给 remind_at）
 用户接着已有任务只说提醒钟点时，结合上下文沿用该任务的日期，不擅自改成今天。“六七点”等未确定范围，除非用户明确让你选一个时间，否则 clarification 简短询问具体钟点，actions=[]。提问中带出已有任务日期，例如“9月24日的作业，18:00还是19:00提醒？”，方便用户只回复钟点。用户回复“六点半吧”时必须保留原提醒日期，不能默认今天。可以按语义、常见错别字匹配已有任务，不重复创建；有多个可能对象才问对象。
 complete:{op:'complete',id:数字}; cancel:{op:'cancel',id:数字}; restore:{op:'restore',id:数字}; query:{op:'query',scope:'all'|'tomorrow'|'overdue'}
-用户取消事项可以只描述事情，不需要编号。按含义匹配现有任务，存在多个可能匹配时 clarification 列出任务名称并询问，actions=[]。cancel 为拟取消；“不取消/恢复/保留某件事”对 pending_cancel 事项使用 restore。修改拟取消事项也会恢复它。不要把“不取消”理解成 cancel。
+用户取消事项可以只描述事情，不需要编号。结合当前消息和历史按含义匹配，允许错别字、省略和对上一轮提问的回答。对象与取消意图已经明确就输出 cancel，不再询问是否确定；用户对刚才已明确的单个取消问题回复“删除”“确认”“确认删除”即可理解为同意。仅有多个可能对象或意图确实不清楚才 clarification。cancel 为可恢复的拟取消，不是立即永久删除。“不取消/恢复/保留某件事”对 pending_cancel 事项使用 restore；已经是 open 的事项本来就在保留，不需要 restore，直接说明保留即可。修改拟取消事项也会恢复它。不要把“不取消”理解成 cancel。
 remember:{op:'remember',key:string,value:string}; forget:{op:'forget',key:string}
 preference:{op:'preference',key:'evening_digest_time'|'default_reminder_time',value:'HH:mm'}
 秘书能力：用户问空闲时间做什么时，直接在 reply 推荐一个适合现有任务的下一步，可给备选、预计耗时和原因；actions=[]，不自动安排或标完成。模型估时须注明估计，不冒充用户提供。如果只有“测试事项”等含义不明的标题，应先简短询问具体内容，不虚构测试类型、步骤或保证半小时能完成。不要判断任务不值得做、建议放弃任务或引入项目归属/价值评估。

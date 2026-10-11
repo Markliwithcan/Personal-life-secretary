@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import {DateTime} from 'luxon';
 import {Plan,understand} from './model.mjs';
 import {line,digest} from './scheduler.mjs';
+import {dailyCard} from './briefing-card.mjs';
 import {taskDate,clockTime,normalizeTask} from './time.mjs';
 import {validateSchedule,describeSchedule,saveSchedule,undoSchedule} from './planning.mjs';
 export const HELP=`可以自然聊天，也可以用以下指令（无需模型）：
@@ -172,15 +173,16 @@ export class Engine{
     }
     return this.commit(id,text,response||'请再说具体一点，我还没确定要记录什么。',now);
   }
-  async daily(kind,now=Date.now()){
+  async daily(kind,now=Date.now(),format='text'){
     const cfg=this.cfg(),day=DateTime.fromMillis(now,{zone:cfg.timezone}).toISODate(),key=`${kind}:${day}`;
-    const snapshot=JSON.stringify({format:2,tasks:this.store.all(),allocations:this.store.db.prepare('SELECT * FROM allocations ORDER BY task_id,date').all()});
-    const existing=this.store.db.prepare('SELECT body,snapshot FROM briefings WHERE id=?').get(key);if(existing?.snapshot===snapshot)return existing.body;
+    const snapshot=JSON.stringify({format:3,output:format,tasks:this.store.all(),allocations:this.store.db.prepare('SELECT * FROM allocations ORDER BY task_id,date').all()});
+    const existing=this.store.db.prepare('SELECT body,snapshot FROM briefings WHERE id=?').get(key);if(existing?.snapshot===snapshot)return format==='card'?JSON.parse(existing.body):existing.body;
     let body=digest(this.store,cfg,now,kind);
     if(!body)return '';
+    const baseBody=body;
     if(this.store.open().some(t=>t.state==='open')){
       try{
-        const plan=Plan.parse(await this.model(`请对${kind==='morning'?'今天':'明天'}给出简短秘书建议。先回顾已确认完成、明确未完成/部分完成、完成情况待确认。只读分析，不创建/修改/完成任务。若已知用户各日可用时间、剩余量、可拆分性，可返回唯一 schedule 草案；否则仅在有额外建议时用一两句话给出下一步或必要问题，可返回空 reply。不重复清单，不写操作示例、回复指南、空栏目或“暂无”，不虚构可用时间。不确定项早晚继续询问，未答不改状态，不评判任务价值。`,this.store,cfg,now));
+        const plan=Plan.parse(await this.model(`请对${kind==='morning'?'今天':'明天'}给出简短秘书建议。任务表已由程序展示完成/待办/待确认状态，你只需自由判断当下最有用的下一步、可能冲突或需要用户回答的问题。不要再回顾或罗列整份任务。只读分析，不创建/修改/完成任务。若已知用户各日可用时间、剩余量、可拆分性，可返回唯一 schedule 草案；否则仅在有额外建议时用一两句话给出下一步或必要问题，可返回空 reply。不重复清单，不写操作示例、回复指南、空栏目或“暂无”，不虚构可用时间。不确定项早晚继续询问，未答不改状态，不评判任务价值。`,this.store,cfg,now));
         if(plan.actions.length===1&&plan.actions[0].op==='schedule'&&!plan.clarification){
           const p=plan.actions[0];validateSchedule(this.store,p,cfg,now);
           const revisions=Object.fromEntries(p.slots.map(s=>[s.id,this.store.get(s.id).revision]));
@@ -188,8 +190,9 @@ export class Engine{
         }else if(!plan.actions.length&&(plan.clarification||plan.reply)?.trim())body+='\n\n'+(plan.clarification||plan.reply).trim();
       }catch{/* The deterministic briefing remains usable without model advice. */}
     }
-    this.store.db.prepare('INSERT INTO briefings VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,snapshot=excluded.snapshot,created=excluded.created').run(key,body,snapshot,now);
-    this.store.addHistory('assistant',body,now);return body;
+    const output=format==='card'?dailyCard(this.store,cfg,now,kind,body.slice(baseBody.length).trim().replace(/^秘书建议(?:（待确认）)?：\s*/,'')):body;
+    this.store.db.prepare('INSERT INTO briefings VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,snapshot=excluded.snapshot,created=excluded.created').run(key,format==='card'?JSON.stringify(output):body,snapshot,now);
+    this.store.addHistory('assistant',body,now);return output;
   }
   commit(id,input,response,now){
     if(!this.store.inTransaction)return this.store.tx(()=>this.commit(id,input,response,now));

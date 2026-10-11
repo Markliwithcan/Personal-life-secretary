@@ -7,6 +7,7 @@ import {CONFIG_DIR,DATA_DIR,readSettings} from './settings.mjs';
 import {Store} from './store.mjs';
 import {Engine} from './engine.mjs';
 import {tick} from './scheduler.mjs';
+import {sendFeishuMessage} from './briefing-card.mjs';
 import {scheduleReviews,runReviews} from './review.mjs';
 import {dailyBackup} from './maintenance.mjs';
 import {parsePlanBuffer} from './importer.mjs';
@@ -38,13 +39,8 @@ function context(event){
  }
  return {...engines.get(who.scope),...who};
 }
-async function send(event,text,key){
- const prefix=event.message.chat_type==='group'?`<at user_id="${event.sender.sender_id.open_id}"></at>\n`:'';
- for(let i=0;i<text.length;i+=1500){
-  const result=await client.im.message.create({params:{receive_id_type:'chat_id'},data:{receive_id:event.message.chat_id,msg_type:'text',content:JSON.stringify({text:prefix+text.slice(i,i+1500)}),...(key?{uuid:crypto.createHash('md5').update(key+':'+i).digest('hex')}:{})}});
-  if(result.code)throw new Error('FEISHU_SEND_'+result.code);
- }
-}
+async function send(event,text,key){return sendFeishuMessage(client,event,text,key);}
+
 async function processMessage(event,ctx){
  const m=event.message,id=m.message_id;
  if(m.message_type==='text'){
@@ -102,7 +98,7 @@ async function work(){
   }
   for(const row of queue.prepare('SELECT * FROM scopes').all()){
    const event=JSON.parse(row.event),ctx=context(event);if(!ctx)continue;
-   await tick(ctx.store,ctx.engine.cfg(),text=>send(event,text),Date.now(),(kind,now)=>ctx.engine.daily(kind,now));
+   await tick(ctx.store,ctx.engine.cfg(),text=>send(event,text),Date.now(),(kind,now)=>ctx.engine.daily(kind,now,'card'));
    scheduleReviews(ctx.store,ctx.engine.cfg(),null);await runReviews(ctx.store,ctx.engine.cfg());
    dailyBackup(ctx.store,ctx.folder,ctx.engine.cfg().timezone);
   }

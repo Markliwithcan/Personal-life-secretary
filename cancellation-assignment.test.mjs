@@ -39,7 +39,7 @@ test('cross assignment requires known explicit recipient and can continue clarif
  const ask=async()=>({route:'assign',target:'用户甲',task,question:null});
  try{
  const r=await routeAssignment('明天下午一点提醒用户甲阅读资料',s,cfg,members,members[1],now,ask);assert.equal(r.member.open_id,'a');assert.equal(s.all().length,0);
- const uncertain=await routeAssignment('提醒他阅读资料',s,cfg,members,members[1],now,ask);assert.equal(uncertain.route,'clarify');
+ const uncertain=await routeAssignment('提醒他阅读资料',s,cfg,members,members[1],now,async()=>({route:'clarify',target:null,task:null,question:'给哪位成员？'}));assert.equal(uncertain.route,'clarify');
  rememberQuestion(s,'提醒他阅读资料',uncertain.question,now);
  const clarified=await routeAssignment('是用户甲',s,cfg,members,members[1],now,ask);assert.equal(clarified.member.open_id,'a');
  s.db.prepare('DELETE FROM assignment_question').run();

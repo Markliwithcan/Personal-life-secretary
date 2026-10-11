@@ -4,7 +4,7 @@ export function line(task,cfg){
   const when=task.due?(task.due.length===10?task.due:DateTime.fromISO(task.due).setZone(cfg.timezone).toFormat('MM-dd HH:mm')):'待安排';
   return `#${task.id} ${task.title}｜${when}${task.remind_at?`｜提醒 ${formatTime(task.remind_at,cfg.timezone)}`:''}${task.recurrence?`｜${task.recurrence==='daily'?'每天':'每周'}`:''}${task.state==='pending_cancel'?'（拟取消，若有误/不取消请及时修改）':''}`;
 }
-export function digest(store,cfg,now,kind='evening'){
+export function digestData(store,cfg,now,kind='evening'){
   const local=DateTime.fromMillis(now,{zone:cfg.timezone}),today=local.toISODate(),target=kind==='morning'?today:local.plus({days:1}).toISODate();
   const tasks=store.open().filter(t=>t.state==='open');
   const slots=store.db.prepare('SELECT * FROM allocations WHERE date=? ORDER BY task_id').all(target).filter(s=>store.get(s.task_id)?.state==='open');
@@ -13,13 +13,18 @@ export function digest(store,cfg,now,kind='evening'){
   const unfinished=relevant.filter(t=>['partial','unfinished'].includes(t.progress));
   const start=local.startOf('day').toMillis();
   const completed=store.db.prepare("SELECT DISTINCT task_id FROM audit WHERE action='complete' AND created>=? AND created<=?").all(start,now).map(r=>store.get(r.task_id)).filter(Boolean);
-  const section=(name,rows)=>rows.length?name+'\n'+rows.slice(0,30).map(t=>line(t,cfg)+(t.progress==='partial'?'｜部分完成':'')+(t.remaining_minutes!=null?`｜剩余 ${t.remaining_minutes} 分钟`:'')).join('\n')+(rows.length>30?`\n另有 ${rows.length-30} 项`: ''):'';
   const missing=tasks.filter(t=>!t.remind_at||!t.reminder_explicit);
   const cancelling=kind==='evening'?store.pendingCancellations().filter(t=>!t.cancel_notified_at):[];
+  const targetTasks=tasks.filter(t=>taskDate(t,cfg.timezone)===target);
+  return {today,target,kind,tasks,slots,unknown,unfinished,completed,missing,cancelling,targetTasks};
+}
+export function digest(store,cfg,now,kind='evening'){
+  const {target,tasks,slots,unknown,unfinished,completed,missing,cancelling,targetTasks}=digestData(store,cfg,now,kind);
+  const section=(name,rows)=>rows.length?name+'\n'+rows.slice(0,30).map(t=>line(t,cfg)+(t.progress==='partial'?'｜部分完成':'')+(t.remaining_minutes!=null?`｜剩余 ${t.remaining_minutes} 分钟`:'')).join('\n')+(rows.length>30?`\n另有 ${rows.length-30} 项`: ''):'';
   const knownMinutes=unfinished.reduce((n,t)=>n+(t.remaining_minutes??(t.progress==='partial'?0:t.effort_minutes)??0),0);
   const sections=[
     section('今天已确认完成',completed),
-    section(kind==='morning'?'今日事项':'明日事项',tasks.filter(t=>taskDate(t,cfg.timezone)===target)),
+    section(kind==='morning'?'今日事项':'明日事项',targetTasks),
     slots.length?'执行安排\n'+slots.map(s=>`${store.get(s.task_id).title}｜${s.minutes}分钟${s.step?'｜'+s.step:''}`).join('\n'):'',
     section('尚未完成',unfinished)+(unfinished.length&&knownMinutes?`\n已知剩余约 ${knownMinutes} 分钟。`:''),
     section('完成情况待确认',unknown),
@@ -50,10 +55,11 @@ export async function tick(store,cfg,send,now=Date.now(),buildDaily=null){
     }
     let text=job.kind==='review_notice'?job.payload:['digest','morning'].includes(job.kind)?digest(store,cfg,now,job.kind==='morning'?'morning':'evening'):job.kind==='test'?'测试提醒：本地持久化提醒和主动推送已运行。':`待办提醒\n${line(task,cfg)}${now-task.remind_at>120000?'\n这是恢复连接或免打扰结束后的补发提醒。':''}\n回复“完成 ${task.id}”或“推迟 ${task.id} 30分钟”。`;
     text=text.replace('${task.id}',String(task?.id||'' )).replace('${task.id}',String(task?.id||''));
-    const cancellationSnapshot=job.kind==='digest'?store.pendingCancellations().filter(t=>!t.cancel_notified_at):[];
+    let cancellationSnapshot=job.kind==='digest'?store.pendingCancellations().filter(t=>!t.cancel_notified_at):[];
     try{
       if(buildDaily&&['digest','morning'].includes(job.kind))text=await buildDaily(job.kind==='morning'?'morning':'evening',now);
-      if(text?.trim())await send(text);
+      if(text?.type==='daily_card')cancellationSnapshot=cancellationSnapshot.filter(t=>text.cancel_ids.includes(t.id));
+      if(text?.type==='daily_card'||typeof text==='string'&&text.trim())await send(text);
       else {store.db.prepare("UPDATE jobs SET state='sent',last_error=NULL WHERE id=?").run(job.id);continue;}
       store.tx(()=>{
         store.db.prepare("UPDATE jobs SET state='sent',attempts=attempts+1,last_error=NULL WHERE id=?").run(job.id);
