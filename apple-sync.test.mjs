@@ -17,6 +17,10 @@ test('snapshot preserves identity across edits; unknown times and pending cancel
  assert.equal(a.marker,b.marker);assert.notEqual(a.fingerprint,b.fingerprint);
  assert.equal(get({...row,reminder_explicit:0}).alarm,'');
  assert.equal(get({...row,remind_at:now-1}).alarm,'');
+ assert.equal(get({...row,remind_at:now-1}).reminder_at,new Date(now-1).toISOString());
+ assert.equal(get({...row,reminder_explicit:0}).reminder_at,'');
+ assert.equal(get({...row,state:'pending_cancel'}).reminder_at,'');
+ assert.equal(get(row).state,'open');
  assert.equal(get({...row,state:'pending_cancel'}).alarm,'');
  assert.equal(get({...row,state:'pending_cancel'}).active,true);
  for(const state of ['done','cancelled'])assert.equal(get({...row,state}).active,false);

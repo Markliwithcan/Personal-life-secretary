@@ -1,0 +1,5 @@
+# Optional CalDAV bridge; separate from the secretary's Python runtime.
+Radicale==3.7.5
+bcrypt==4.3.0
+vobject==0.9.9
+defusedxml==0.7.1

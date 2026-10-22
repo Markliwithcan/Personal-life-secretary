@@ -12,11 +12,14 @@ export function snapshot(rows,namespace,timezone,now=Date.now()){
     const marker=`[secretary:${namespace}:${t.scope}:${t.id}]`;
     // Pending cancellation suppresses alerts but is not treated as completed.
     const active=['open','pending_cancel'].includes(t.state);
+    // Stable explicit time lets CalDAV retain an already delivered alarm without
+    // treating the clock passing its due time as a user edit.
+    const reminder_at=active&&t.state==='open'&&t.reminder_explicit&&t.remind_at>0?new Date(t.remind_at).toISOString():'';
     const alarm=active&&t.state==='open'&&t.reminder_explicit&&t.remind_at>now?new Date(t.remind_at).toISOString():'';
     const title=t.title+(t.state==='pending_cancel'?'（拟取消）':'');
     const content={title,alarm,state:t.state};
     const fingerprint=tokenHash(JSON.stringify(content));
-    return {marker,fingerprint,title,alarm,active,notes:`${marker}\nversion:${fingerprint}\n完成情况请在飞书确认。`};
+    return {marker,fingerprint,title,alarm,reminder_at,state:t.state,active,notes:`${marker}\nversion:${fingerprint}\n完成情况请在飞书确认。`};
   })};
 }
 export function createSyncServer({clients,namespace,timezone,readRows}){

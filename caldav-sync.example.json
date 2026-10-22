@@ -1,0 +1,13 @@
+{
+  "namespace": "00000000000000000000000000000000",
+  "scopes": ["0000000000000000000000000000000000000000000000000000000000000000"],
+  "source": {
+    "url": "http://127.0.0.1:8788/v1/apple-reminders",
+    "authorization": "Bearer REPLACE_WITH_DEVICE_CREDENTIAL"
+  },
+  "caldav": {
+    "url": "http://127.0.0.1:5232/YOUR_USER/reminders/",
+    "username": "YOUR_USER",
+    "password": "REPLACE_WITH_CALDAV_PASSWORD"
+  }
+}
